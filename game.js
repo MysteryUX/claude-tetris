@@ -42,6 +42,7 @@ const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
 
 let gridColor = '#22222e';
+let ghostAlpha = 0.2;
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
@@ -202,7 +203,7 @@ function draw() {
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       if (current.shape[r][c])
-        drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, 0.2);
+        drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, ghostAlpha);
 
   // current piece
   for (let r = 0; r < current.shape.length; r++)
@@ -307,7 +308,9 @@ restartBtn.addEventListener('click', init);
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   themeToggle.setAttribute('aria-checked', String(theme === 'light'));
-  gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim() || gridColor;
+  const styles = getComputedStyle(document.documentElement);
+  gridColor = styles.getPropertyValue('--grid').trim() || gridColor;
+  ghostAlpha = parseFloat(styles.getPropertyValue('--ghost-alpha')) || ghostAlpha;
   try { localStorage.setItem('theme', theme); } catch (e) {}
   // En pausa o game over el bucle no redibuja
   if (current) { draw(); drawNext(); }
@@ -320,6 +323,7 @@ themeToggle.addEventListener('click', () => {
 
 let savedTheme = null;
 try { savedTheme = localStorage.getItem('theme'); } catch (e) {}
-applyTheme(savedTheme === 'light' ? 'light' : 'dark');
+const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+applyTheme(savedTheme === 'light' || (!savedTheme && prefersLight) ? 'light' : 'dark');
 
 init();

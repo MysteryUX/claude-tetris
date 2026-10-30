@@ -17,6 +17,7 @@
   --kbd-text: #aaa;
   --overlay-bg: rgba(10, 10, 20, 0.75);
   --danger: #e57373;
+  --ghost-alpha: 0.2;
 }
 
 [data-theme="light"] {
@@ -28,7 +29,7 @@
   --accent-contrast: #ffffff;
   --board-bg: #ffffff;
   --border: #c9cde0;
-  --grid: #e3e6f2;
+  --grid: #d2d6e8;
   --shadow: rgba(40, 50, 90, 0.2);
   --label: #6b6f8a;
   --muted: #555;
@@ -37,6 +38,7 @@
   --kbd-text: #444;
   --overlay-bg: rgba(242, 244, 250, 0.8);
   --danger: #d32f2f;
+  --ghost-alpha: 0.5;
 }
 
 *, *::before, *::after {
