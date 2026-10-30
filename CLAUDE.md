@@ -30,5 +30,5 @@ Flujo: `init()` reinicia todo el estado y arranca `loop` con `requestAnimationFr
 
 - El tamaño del canvas está duplicado: `COLS`/`ROWS`/`BLOCK` en `game.js` y `width`/`height` del `<canvas id="board">` en `index.html` deben coincidir (`COLS × BLOCK` por `ROWS × BLOCK`).
 - El HUD (`updateHUD`) se actualiza desde `clearLines`, `softDrop`, `init` y al final de cada `keydown`; si añades nueva puntuación, asegúrate de que pasa por alguno de estos sitios.
-- `endGame()` llama a `cancelAnimationFrame(animId)`, pero cuando se dispara desde dentro de `loop` (pieza que cae sola y se fija) `loop` vuelve a pedir otro frame justo después, así que el bucle sigue corriendo tras el game over. Las teclas quedan bloqueadas por `gameOver`, pero ten presente este comportamiento al tocar el bucle o el fin de partida.
+- `endGame()` se puede disparar desde dentro de `loop` (pieza que cae sola y se fija), donde `cancelAnimationFrame` llega tarde; por eso `loop` comprueba `gameOver` tras dibujar y no pide otro frame. Mantén esa comprobación si tocas el bucle.
 - El botón del overlay (`restart-btn`) siempre llama a `init()`, también estando en pausa; para reanudar solo sirve `P`.

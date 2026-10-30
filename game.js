@@ -257,6 +257,8 @@ function loop(ts) {
     }
   }
   draw();
+  // endGame() puede dispararse desde lockPiece() dentro de este mismo frame
+  if (gameOver) return;
   animId = requestAnimationFrame(loop);
 }
 
