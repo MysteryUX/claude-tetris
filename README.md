@@ -38,7 +38,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Rotación** con _wall kicks_ básicos (pequeños desplazamientos para que la pieza pueda rotar pegada a la pared).
 - **Soft drop** (bajada acelerada) y **hard drop** (caída instantánea).
 - **Pieza fantasma** (_ghost piece_): muestra dónde aterrizará la pieza actual.
-- **Vista previa** de la siguiente pieza.
+- **Vista previa** de las **3 siguientes piezas** (constante `NEXT_COUNT`).
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
 - **Pausa** y **Game Over** con opción de reinicio.
@@ -99,7 +99,7 @@ Define la estructura visual:
 
 - Un encabezado `<h1 class="title">TETRIS</h1>` visible sobre el tablero.
 - Un `<canvas id="board">` de **300 × 600** píxeles donde se renderiza el tablero.
-- Un panel lateral con `SCORE`, `LINES`, `LEVEL`, vista de la siguiente pieza y la lista de controles.
+- Un panel lateral con `SCORE`, `LINES`, `LEVEL`, vista de las 3 siguientes piezas y la lista de controles.
 - Un overlay para los estados **PAUSA** y **GAME OVER**.
 
 ### 2. `style.css`
@@ -125,8 +125,8 @@ Contiene toda la lógica del juego. A grandes rasgos:
 ```
 init()
   ├─ createBoard()                  → matriz vacía
-  ├─ next = randomPiece()
-  ├─ spawn()                        → mueve next a current y genera nueva next
+  ├─ queue = [randomPiece()]
+  ├─ spawn()                        → saca la primera de queue como current y rellena hasta 3 piezas
   └─ requestAnimationFrame(loop)
         ↓
    loop(timestamp)
