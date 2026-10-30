@@ -27,6 +27,7 @@ const PIECES = [
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+const NEXT_COUNT = 3;
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -44,7 +45,7 @@ const themeToggle = document.getElementById('theme-toggle');
 let gridColor = '#22222e';
 let ghostAlpha = 0.2;
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, current, queue, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -146,8 +147,8 @@ function lockPiece() {
 }
 
 function spawn() {
-  current = next;
-  next = randomPiece();
+  current = queue.shift();
+  while (queue.length < NEXT_COUNT) queue.push(randomPiece());
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
@@ -212,14 +213,22 @@ function draw() {
 }
 
 function drawNext() {
-  const NB = 30;
+  const NB = 20;
+  const slotCells = nextCanvas.height / NB / NEXT_COUNT; // alto de cada hueco, en celdas
+  const widthCells = nextCanvas.width / NB;
   nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-  const shape = next.shape;
-  const offX = Math.floor((4 - shape[0].length) / 2);
-  const offY = Math.floor((4 - shape.length) / 2);
-  for (let r = 0; r < shape.length; r++)
-    for (let c = 0; c < shape[r].length; c++)
-      drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
+  queue.slice(0, NEXT_COUNT).forEach((piece, i) => {
+    const { shape } = piece;
+    // Caja ocupada por la pieza (las matrices tienen filas/columnas vacías)
+    const used = (flags) => flags.map((on, k) => (on ? k : -1)).filter(k => k >= 0);
+    const rows = used(shape.map(row => row.some(Boolean)));
+    const cols = used(shape[0].map((_, c) => shape.some(row => row[c])));
+    const offX = (widthCells - cols.length) / 2 - cols[0];
+    const offY = i * slotCells + (slotCells - rows.length) / 2 - rows[0];
+    for (let r = 0; r < shape.length; r++)
+      for (let c = 0; c < shape[r].length; c++)
+        drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
+  });
 }
 
 function endGame() {
@@ -272,7 +281,7 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
-  next = randomPiece();
+  queue = [randomPiece()]; // spawn() la toma como pieza actual y rellena la cola
   spawn();
   updateHUD();
   overlay.classList.add('hidden');

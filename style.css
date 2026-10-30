@@ -134,8 +134,7 @@ body {
   width: 160px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-top: 4px;
+  gap: 12px;
 }
 
 .panel-section {
