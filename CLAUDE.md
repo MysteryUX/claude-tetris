@@ -20,7 +20,7 @@ Tres archivos que cooperan; toda la lógica está en `game.js` (script clásico,
 
 Modelo de datos en `game.js`:
 
-- `board` es una matriz `ROWS × COLS`; cada celda es `0` (vacía) o un índice `1–7` que sirve a la vez de tipo de pieza y de índice en `COLORS`/`PIECES` (el índice `0` es `null` en ambos arrays).
+- `board` es una matriz `ROWS × COLS`; cada celda es `0` (vacía) o un índice `1–8` (el 8 es el bloque 3×3) que sirve a la vez de tipo de pieza y de índice en `COLORS`/`PIECES` (el índice `0` es `null` en ambos arrays).
 - Las piezas (`current` y cada elemento de `queue`) son `{ type, shape, x, y }`. `queue` guarda las próximas `NEXT_COUNT` (3) piezas; `spawn` saca la primera como `current` y rellena la cola, y `drawNext` las pinta. Si cambias `NEXT_COUNT`, ajusta también el alto de `next-canvas` (`NEXT_COUNT × 60`) y comprueba que el panel lateral no supere el alto del tablero. `shape` es una matriz cuadrada cuyos valores no cero ya llevan el índice de color; rotar es `rotateCW` (transponer + invertir).
 - `collide(shape, ox, oy)` es la única comprobación de colisiones y la usan movimiento, rotación (`tryRotate`, con kicks horizontales `[0,-1,1,-2,2]`), caída, fantasma (`ghostY`) y `spawn`.
 
