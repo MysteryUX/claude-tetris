@@ -47,6 +47,10 @@ const themeToggle = document.getElementById('theme-toggle');
 let gridColor = '#22222e';
 let ghostAlpha = 0.2;
 
+let startLevel = 1; // nivel inicial elegido en el menú de pausa (vale para la próxima partida)
+let gameStartLevel = 1; // nivel inicial de la partida en curso (fijado en init)
+function dropIntervalFor(lvl) { return Math.max(100, 1000 - (lvl - 1) * 90); }
+
 let board, current, queue, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
 function createBoard() {
@@ -113,8 +117,8 @@ function clearLines() {
   if (cleared) {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    level = Math.max(gameStartLevel, Math.floor(lines / 10) + 1);
+    dropInterval = dropIntervalFor(level);
     updateHUD();
   }
 }
@@ -238,6 +242,8 @@ function endGame() {
   cancelAnimationFrame(animId);
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
+  pauseMenuShow(false);
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   overlay.classList.remove('hidden');
 }
 
@@ -245,12 +251,15 @@ function togglePause() {
   if (gameOver) return;
   paused = !paused;
   if (!paused) {
+    pauseMenuHide();
     lastTime = performance.now();
+    cancelAnimationFrame(animId);
     loop(lastTime);
   } else {
     cancelAnimationFrame(animId);
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
+    pauseMenuShow(true);
     overlay.classList.remove('hidden');
   }
 }
@@ -277,23 +286,33 @@ function init() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = 1;
+  gameStartLevel = startLevel;
+  level = gameStartLevel;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = dropIntervalFor(level);
   dropAccum = 0;
   lastTime = performance.now();
   queue = [randomPiece()]; // spawn() la toma como pieza actual y rellena la cola
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  pauseMenuHide();
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (e.code === 'KeyP' || e.code === 'Escape') {
+    if (!e.repeat && !(e.code === 'KeyP' && e.target.tagName === 'SELECT')) togglePause();
+    return;
+  }
+  if (paused || gameOver) {
+    // Menú abierto: Espacio/Enter solo activan botones del menú; nada llega al juego
+    const inMenu = e.target.closest && e.target.closest('#overlay');
+    if ((e.code === 'Space' || e.code === 'Enter') && !inMenu) e.preventDefault();
+    return;
+  }
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -317,6 +336,55 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+
+// ---- Menú de pausa ----
+const pauseMenu = document.getElementById('pause-menu');
+const pauseMain = document.getElementById('pause-main');
+const pauseControls = document.getElementById('pause-controls');
+const pauseResume = document.getElementById('pause-resume');
+const pauseRestart = document.getElementById('pause-restart');
+const pauseControlsBtn = document.getElementById('pause-controls-btn');
+const pauseBack = document.getElementById('pause-back');
+const pauseLevelSelect = document.getElementById('pause-level-select');
+
+for (let i = 1; i <= 15; i++) pauseLevelSelect.add(new Option(i, i));
+
+// show=true: menú de pausa; show=false: solo el botón de game over
+function pauseMenuShow(show) {
+  pauseMenu.classList.toggle('hidden', !show);
+  restartBtn.classList.toggle('hidden', show);
+  pauseMain.classList.remove('hidden');
+  pauseControls.classList.add('hidden');
+  if (show) {
+    pauseLevelSelect.value = String(startLevel);
+    pauseResume.focus();
+  }
+}
+
+// Vuelve al juego: quita el foco para que Espacio no active ningún control
+function pauseMenuHide() {
+  pauseMenu.classList.add('hidden');
+  restartBtn.classList.remove('hidden');
+  pauseMain.classList.remove('hidden');
+  pauseControls.classList.add('hidden');
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+
+pauseResume.addEventListener('click', () => { if (paused) togglePause(); });
+pauseRestart.addEventListener('click', init);
+pauseControlsBtn.addEventListener('click', () => {
+  pauseMain.classList.add('hidden');
+  pauseControls.classList.remove('hidden');
+  pauseBack.focus();
+});
+pauseBack.addEventListener('click', () => {
+  pauseControls.classList.add('hidden');
+  pauseMain.classList.remove('hidden');
+  pauseControlsBtn.focus();
+});
+pauseLevelSelect.addEventListener('change', () => {
+  startLevel = parseInt(pauseLevelSelect.value, 10) || 1;
+});
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
