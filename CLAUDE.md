@@ -15,7 +15,7 @@ Tetris en JavaScript vanilla con HTML5 Canvas. Sin dependencias, sin `package.js
 
 Tres archivos que cooperan; toda la lógica está en `game.js` (script clásico, `'use strict'`, sin módulos, estado en variables globales de nivel superior).
 
-- `index.html` define los elementos que `game.js` busca por `id` al cargar: `board` (canvas 300×600), `next-canvas` (120×180: `NEXT_COUNT` huecos de 60 px, uno por pieza), `score`, `lines`, `level`, `overlay`, `overlay-title`, `overlay-score`, `restart-btn`. Si renombras un `id`, hay que cambiarlo también en `game.js`.
+- `index.html` define los elementos que `game.js` busca por `id` al cargar: `board` (canvas 300×600), `next-canvas` (120×180: `NEXT_COUNT` huecos de 60 px, uno por pieza), `score`, `lines`, `level`, `overlay`, `overlay-title`, `overlay-score`, `restart-btn`, `theme-toggle`, `skin-select`. Si renombras un `id`, hay que cambiarlo también en `game.js`.
 - `style.css` solo estilos; el overlay de pausa/game over se muestra y oculta con la clase `hidden`.
 
 Modelo de datos en `game.js`:
@@ -25,6 +25,8 @@ Modelo de datos en `game.js`:
 - `collide(shape, ox, oy)` es la única comprobación de colisiones y la usan movimiento, rotación (`tryRotate`, con kicks horizontales `[0,-1,1,-2,2]`), caída, fantasma (`ghostY`) y `spawn`.
 
 Flujo: `init()` reinicia todo el estado y arranca `loop` con `requestAnimationFrame`. `loop` acumula tiempo en `dropAccum` y baja la pieza al superar `dropInterval`. Las teclas (`keydown`) actúan directamente sobre `current`. Una pieza se fija con `lockPiece()` → `merge()` → `clearLines()` → `spawn()`. `clearLines` también recalcula `level` y `dropInterval`. Si la pieza recién creada ya colisiona, `spawn` llama a `endGame()`.
+
+Skins: `SKINS = { retro, neon, pastel, pixel }`, cada una con `colors` (mismo índice que `COLORS`, que es `let` y apunta a la paleta activa) y `draw(context, px, py, size, color)`. `drawBlock` delega en `SKINS[currentSkin]` y luego restablece `shadowBlur`/`globalAlpha`. `applySkin(name)` pone `data-skin` en `<html>`, relee `--grid`/`--ghost-alpha`, guarda `skin` en localStorage y redibuja; se llama al final de `game.js`, justo antes de `init()`. Neon fuerza fondo negro por CSS (`[data-skin="neon"]`) también en tema claro.
 
 ## Cosas a tener en cuenta
 

@@ -41,6 +41,29 @@
   --ghost-alpha: 0.5;
 }
 
+/* ---- Skins (tablero y siguientes) ---- */
+[data-skin="neon"] {
+  --board-bg: #000000;
+  --grid: #141428;
+  --ghost-alpha: 0.35;
+}
+
+[data-skin="neon"][data-theme="light"] {
+  --board-bg: #000000; /* el neon solo se ve bien sobre negro, también en tema claro */
+  --grid: #1c1c38;
+  --ghost-alpha: 0.4;
+}
+
+.skin-select {
+  background: var(--kbd-bg);
+  color: var(--text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
