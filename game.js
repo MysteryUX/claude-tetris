@@ -4,7 +4,7 @@ const COLS = 10;
 const ROWS = 20;
 const BLOCK = 30;
 
-const COLORS = [
+let COLORS = [
   null,
   '#4dd0e1', // I - cyan
   '#ffd54f', // O - yellow
@@ -43,6 +43,7 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const skinSelect = document.getElementById('skin-select');
 
 let gridColor = '#22222e';
 let ghostAlpha = 0.2;
@@ -163,15 +164,82 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+// ---- Skins visuales ----
+// Cada skin: paleta `colors` (mismo índice que COLORS) y `draw(context, px, py, size, color)`.
+function skinRoundRect(context, x, y, w, h, r) {
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + w, y, x + w, y + h, r);
+  context.arcTo(x + w, y + h, x, y + h, r);
+  context.arcTo(x, y + h, x, y, r);
+  context.arcTo(x, y, x + w, y, r);
+  context.closePath();
+}
+
+const SKINS = {
+  retro: {
+    colors: [null, '#4dd0e1', '#ffd54f', '#ba68c8', '#81c784', '#e57373', '#90caf9', '#ffb74d', '#f06292'],
+    draw(context, px, py, size, color) {
+      context.fillStyle = color;
+      context.fillRect(px + 1, py + 1, size - 2, size - 2);
+      context.fillStyle = 'rgba(255,255,255,0.12)';
+      context.fillRect(px + 1, py + 1, size - 2, 4);
+    },
+  },
+  neon: {
+    colors: [null, '#00f0ff', '#ffee00', '#d500f9', '#39ff14', '#ff1744', '#448aff', '#ff9100', '#ff4081'],
+    draw(context, px, py, size, color) {
+      const m = Math.max(1.5, size * 0.07);
+      context.shadowColor = color;
+      context.shadowBlur = size * 0.5;
+      context.fillStyle = color + '44'; // relleno translúcido
+      context.fillRect(px + m, py + m, size - 2 * m, size - 2 * m);
+      context.strokeStyle = color;
+      context.lineWidth = Math.max(1, size * 0.07);
+      context.strokeRect(px + m, py + m, size - 2 * m, size - 2 * m);
+    },
+  },
+  pastel: {
+    colors: [null, '#a8e6ef', '#fff2b3', '#d9b8e6', '#b9e4c0', '#f5b5b5', '#bcd9f5', '#fcd5a5', '#f7b6cf'],
+    draw(context, px, py, size, color) {
+      context.fillStyle = color;
+      skinRoundRect(context, px + 1, py + 1, size - 2, size - 2, size * 0.28);
+      context.fill();
+      context.fillStyle = 'rgba(255,255,255,0.35)';
+      skinRoundRect(context, px + size * 0.2, py + size * 0.14, size * 0.6, size * 0.16, size * 0.08);
+      context.fill();
+    },
+  },
+  pixel: {
+    colors: [null, '#29b6d6', '#f2b705', '#9c4dcc', '#4caf50', '#d84343', '#4a90d9', '#f08c1a', '#e0407a'],
+    draw(context, px, py, size, color) {
+      const u = size / 8; // 1 "píxel" del bloque
+      context.fillStyle = color;
+      context.fillRect(px, py, size, size);
+      context.fillStyle = 'rgba(255,255,255,0.4)'; // borde claro arriba/izquierda
+      context.fillRect(px, py, size, u);
+      context.fillRect(px, py, u, size);
+      context.fillStyle = 'rgba(0,0,0,0.35)'; // borde oscuro abajo/derecha
+      context.fillRect(px, py + size - u, size, u);
+      context.fillRect(px + size - u, py, u, size);
+      context.fillStyle = 'rgba(0,0,0,0.18)'; // textura: puntos oscuros
+      [[2, 2], [5, 3], [3, 5], [6, 6]].forEach(([i, j]) =>
+        context.fillRect(px + i * u, py + j * u, u, u));
+      context.fillStyle = 'rgba(255,255,255,0.25)'; // textura: puntos claros
+      [[4, 2], [2, 4], [5, 5]].forEach(([i, j]) =>
+        context.fillRect(px + i * u, py + j * u, u, u));
+    },
+  },
+};
+let currentSkin = 'retro';
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
   context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  SKINS[currentSkin].draw(context, x * size, y * size, size, COLORS[colorIndex]);
+  // Restablece el estado que las skins pueden haber tocado
+  context.shadowBlur = 0;
+  context.shadowColor = 'transparent';
   context.globalAlpha = 1;
 }
 
@@ -338,5 +406,29 @@ let savedTheme = null;
 try { savedTheme = localStorage.getItem('theme'); } catch (e) {}
 const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
 applyTheme(savedTheme === 'light' || (!savedTheme && prefersLight) ? 'light' : 'dark');
+
+// ---- Skin activa ----
+function applySkin(name) {
+  if (!SKINS[name]) name = 'retro';
+  currentSkin = name;
+  COLORS = SKINS[name].colors;
+  document.documentElement.dataset.skin = name;
+  skinSelect.value = name;
+  // La skin puede cambiar las variables CSS (--grid, --ghost-alpha)
+  const styles = getComputedStyle(document.documentElement);
+  gridColor = styles.getPropertyValue('--grid').trim() || gridColor;
+  ghostAlpha = parseFloat(styles.getPropertyValue('--ghost-alpha')) || ghostAlpha;
+  try { localStorage.setItem('skin', name); } catch (e) {}
+  if (current) { draw(); drawNext(); }
+}
+
+skinSelect.addEventListener('change', () => {
+  applySkin(skinSelect.value);
+  skinSelect.blur(); // evita que las flechas/Espacio cambien el selector en partida
+});
+
+let savedSkin = null;
+try { savedSkin = localStorage.getItem('skin'); } catch (e) {}
+applySkin(savedSkin);
 
 init();
