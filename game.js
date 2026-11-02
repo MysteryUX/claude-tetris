@@ -110,6 +110,7 @@ function clearLines() {
       r++;
     }
   }
+  recordsTrackCombo(cleared);
   if (cleared) {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
@@ -239,6 +240,7 @@ function endGame() {
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
   overlay.classList.remove('hidden');
+  recordsOnGameOver();
 }
 
 function togglePause() {
@@ -280,6 +282,7 @@ function init() {
   level = 1;
   paused = false;
   gameOver = false;
+  recordsOnInit();
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
@@ -292,6 +295,8 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  // Records: sin partida en marcha, o escribiendo en un campo de texto, el juego no interviene
+  if (!recordsGameStarted || (e.target && e.target.tagName === 'INPUT')) return;
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
@@ -339,4 +344,170 @@ try { savedTheme = localStorage.getItem('theme'); } catch (e) {}
 const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
 applyTheme(savedTheme === 'light' || (!savedTheme && prefersLight) ? 'light' : 'dark');
 
-init();
+// ---- Records: tabla de records local ----
+const RECORDS_KEY = 'tetris-records';
+const RECORDS_MAX = 5;
+const recordsStartEl = document.getElementById('records-start');
+const recordsBlockEl = document.getElementById('records-gameover');
+const recordsFormEl = document.getElementById('records-form');
+const recordsNameEl = document.getElementById('records-name');
+const recordsTableOver = document.getElementById('records-table-over');
+const recordsTableStart = document.getElementById('records-table-start');
+
+let recordsGameStarted = false; // false hasta pulsar "Jugar" por primera vez
+let recordsCombo = 0;           // limpiezas consecutivas en piezas seguidas
+let recordsSessionCombo = 0;    // mejor combo de la partida actual
+let recordsPendingScore = null; // puntuación pendiente de nombre
+let recordsData = recordsLoad();
+
+function recordsLoad() {
+  const data = { top: [], bestCombo: 0, maxLines: 0 };
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECORDS_KEY));
+    if (raw && Array.isArray(raw.top)) {
+      data.top = raw.top
+        .filter(r => r && Number.isFinite(r.score))
+        .slice(0, RECORDS_MAX)
+        .map(r => ({
+          name: String(r.name ?? '').slice(0, 12),
+          score: r.score,
+          lines: Number(r.lines) || 0,
+          level: Number(r.level) || 1,
+        }));
+      data.bestCombo = Number(raw.bestCombo) || 0;
+      data.maxLines = Number(raw.maxLines) || 0;
+    }
+  } catch (e) {}
+  return data;
+}
+
+function recordsSave() {
+  try { localStorage.setItem(RECORDS_KEY, JSON.stringify(recordsData)); } catch (e) {}
+}
+
+function recordsTrackCombo(cleared) {
+  if (cleared) {
+    recordsCombo++;
+    // un combo real son 2 o más limpiezas seguidas
+    if (recordsCombo >= 2) recordsSessionCombo = Math.max(recordsSessionCombo, recordsCombo);
+  } else {
+    recordsCombo = 0;
+  }
+}
+
+function recordsOnInit() {
+  recordsGameStarted = true;
+  recordsCombo = 0;
+  recordsSessionCombo = 0;
+  recordsPendingScore = null;
+  recordsBlockEl.classList.add('hidden');
+  recordsFormEl.classList.add('hidden');
+  restartBtn.blur(); // evita que Espacio reactive el botón durante la partida
+}
+
+// Posición (0-based) que ocuparía una puntuación en el top, o -1 si no entra
+function recordsPosition(s) {
+  if (s <= 0) return -1;
+  const pos = recordsData.top.findIndex(r => s > r.score);
+  if (pos >= 0) return pos;
+  return recordsData.top.length < RECORDS_MAX ? recordsData.top.length : -1;
+}
+
+function recordsRender(container, highlight) {
+  container.textContent = '';
+  const table = document.createElement('table');
+  table.className = 'records-table';
+  const head = table.createTHead().insertRow();
+  ['#', 'NOMBRE', 'PUNTOS', 'LÍNEAS', 'NIVEL'].forEach(t => {
+    const th = document.createElement('th');
+    th.textContent = t;
+    head.appendChild(th);
+  });
+  const body = table.createTBody();
+  for (let i = 0; i < RECORDS_MAX; i++) {
+    const tr = body.insertRow();
+    const r = recordsData.top[i];
+    if (!r) {
+      const td = tr.insertCell();
+      td.colSpan = 5;
+      td.className = 'records-empty';
+      td.textContent = i === 0 ? 'Sin records todavía' : '—';
+      continue;
+    }
+    if (i === highlight) tr.className = 'records-current';
+    [i + 1, r.name || '---', r.score.toLocaleString(), r.lines, r.level].forEach((v, k) => {
+      const td = tr.insertCell();
+      td.textContent = v;
+      td.className = k === 1 ? 'records-name' : 'records-num';
+    });
+  }
+  container.appendChild(table);
+  const stats = document.createElement('p');
+  stats.className = 'records-stats';
+  stats.textContent = `Mejor combo: ${recordsData.bestCombo} · Líneas máximas: ${recordsData.maxLines}`;
+  container.appendChild(stats);
+}
+
+function recordsOnGameOver() {
+  // Combo y líneas máximas se guardan siempre, entre en el top o no
+  let changed = false;
+  if (recordsSessionCombo > recordsData.bestCombo) { recordsData.bestCombo = recordsSessionCombo; changed = true; }
+  if (lines > recordsData.maxLines) { recordsData.maxLines = lines; changed = true; }
+  if (changed) recordsSave();
+
+  recordsBlockEl.classList.remove('hidden');
+  const pos = recordsPosition(score);
+  if (pos >= 0) {
+    recordsPendingScore = { score, lines, level };
+    recordsFormEl.classList.remove('hidden');
+    recordsNameEl.value = '';
+    // retardo para no capturar teclas de juego aún pulsadas (Espacio, flechas)
+    setTimeout(() => { if (recordsPendingScore) recordsNameEl.focus(); }, 500);
+  } else {
+    recordsFormEl.classList.add('hidden');
+  }
+  recordsRender(recordsTableOver, -1);
+}
+
+recordsFormEl.addEventListener('submit', e => {
+  e.preventDefault();
+  if (recordsPendingScore === null) return;
+  const entry = {
+    name: recordsNameEl.value.trim().slice(0, 12) || 'Anónimo',
+    score: recordsPendingScore.score,
+    lines: recordsPendingScore.lines,
+    level: recordsPendingScore.level,
+  };
+  const pos = recordsPosition(entry.score);
+  recordsPendingScore = null;
+  recordsFormEl.classList.add('hidden');
+  if (pos < 0) { recordsRender(recordsTableOver, -1); return; }
+  recordsData.top.splice(pos, 0, entry);
+  recordsData.top.length = Math.min(recordsData.top.length, RECORDS_MAX);
+  recordsSave();
+  recordsRender(recordsTableOver, pos);
+  recordsNameEl.blur();
+});
+
+function recordsShowStart() {
+  recordsRender(recordsTableStart, -1);
+  recordsStartEl.classList.remove('hidden');
+}
+
+const recordsPlayBtn = document.getElementById('records-play');
+recordsPlayBtn.addEventListener('click', () => {
+  recordsStartEl.classList.add('hidden');
+  init();
+  recordsPlayBtn.blur(); // evita que Espacio lo pulse durante la partida
+});
+
+document.getElementById('records-reset').addEventListener('click', () => {
+  if (!confirm('¿Borrar todos los records?')) return;
+  recordsData = { top: [], bestCombo: 0, maxLines: 0 };
+  try { localStorage.removeItem(RECORDS_KEY); } catch (e) {}
+  recordsRender(recordsTableStart, -1);
+  document.getElementById('records-reset').blur();
+});
+
+// La partida arranca al pulsar "Jugar", no al cargar
+recordsShowStart();
